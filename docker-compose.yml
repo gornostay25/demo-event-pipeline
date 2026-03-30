@@ -1,49 +1,125 @@
 services:
+  # PostgreSQL Database
   postgresql:
     image: postgres:15-alpine
+    container_name: events_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: events_db
-    # ports:
-    #   - "5432:5432"
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-events_db}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d events_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-events_db}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - events_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   nats:
-    image: nats:latest
-    # No healthcheck - causes startup issues
-    # healthcheck:
-    #   test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8222/healthz"]
+    image: nats:alpine
+    container_name: events_nats
+    restart: unless-stopped
+    # ports:
+    #   - "4222:4222"
+    #   - "8222:8222"  # Monitoring
+    # healthcheck: - it causes startup issues, so we rely on depends_on with service_started condition
+    #   test: ["CMD", "ns"]
     #   interval: 10s
     #   timeout: 5s
-    #   retries: 3
+    #   retries: 5
+    #   start_period: 10s
+    networks:
+      - events_network
 
-  app:
-    build: .
+  # API Gateway (HTTP ingress only)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: ../Dockerfile
+    container_name: events_api_gateway
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgresql
-      - DB_PORT=5432
-      - DB_USER=user
-      - DB_PASSWORD=postgres
-      - DB_NAME=events_db
-      - NATS_URL=nats://nats:4222
+      NODE_ENV: production
+      PORT: 3000
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - events_network
+
+  # Event Processor (Write microservice)
+  event-processor:
+    build:
+      context: ./event-processor
+      dockerfile: ../Dockerfile
+    container_name: events_event_processor
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-events_db}
+      NATS_URL: nats://nats:4222
     depends_on:
       nats:
         condition: service_started
       postgresql:
         condition: service_healthy
+    networks:
+      - events_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
+  # Analytics Service (Read-only microservice)
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: ../Dockerfile
+    container_name: events_analytics_service
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgresql
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-events_db}
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_started
+      postgresql:
+        condition: service_healthy
+    networks:
+      - events_network
+
+  # External Event Publisher
   publisher:
     image: andriiuni/events
+    container_name: events_publisher
+    restart: unless-stopped
     environment:
-      - EVENT_ENDPOINT=http://app:3000/webhook
+      EVENT_ENDPOINT: http://api-gateway:3000/webhook
     depends_on:
-      app:
+      api-gateway:
         condition: service_started
+    networks:
+      - events_network
+
+networks:
+  events_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

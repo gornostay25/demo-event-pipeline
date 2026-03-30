@@ -15,4 +15,4 @@ COPY . .
 RUN bun run build
 
 # Run migrations and start
-CMD ["sh", "-c", "bun run migration:run && bun run start:prod"]
+CMD ["sh", "-c", "bun run start:prod"]

@@ -1,0 +1,1 @@
+export const NATS_PUBLISHER = 'NATS_PUBLISHER';
