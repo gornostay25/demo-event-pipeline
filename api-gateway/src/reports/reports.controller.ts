@@ -2,7 +2,11 @@ import { Controller, Get, Query, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { NATS_PUBLISHER } from '../nats/nats.constants';
-import { ReportQueryDto } from '../dto/report-query.dto';
+import {
+  CountriesQueryDto,
+  FunnelStatsQueryDto,
+  TimeSeriesQueryDto,
+} from '../dto/report-query.dto';
 import { firstValueFrom } from 'rxjs';
 
 @Controller('reports')
@@ -14,16 +18,11 @@ export class ReportsController {
   ) {}
 
   @Get('funnel')
-  async getFunnelStats(@Query() query: ReportQueryDto) {
+  async getFunnelStats(@Query() query: FunnelStatsQueryDto) {
     this.logger.log(`Fetching funnel stats: ${JSON.stringify(query)}`);
-
-    // Use request-response pattern with NATS
-    // firstValueFrom() converts Observable to Promise
-    const result = await firstValueFrom(
+    return firstValueFrom(
       this.natsClient.send('report.get_funnel', query),
     );
-
-    return result;
   }
 
   @Get('sources')
@@ -33,7 +32,7 @@ export class ReportsController {
   }
 
   @Get('countries')
-  async getTopCountries(@Query() query: ReportQueryDto) {
+  async getTopCountries(@Query() query: CountriesQueryDto) {
     const payload = { limit: query.limit };
     this.logger.log(`Fetching top countries: ${JSON.stringify(payload)}`);
     return firstValueFrom(
@@ -42,7 +41,7 @@ export class ReportsController {
   }
 
   @Get('time-series')
-  async getTimeSeries(@Query() query: ReportQueryDto) {
+  async getTimeSeries(@Query() query: TimeSeriesQueryDto) {
     const payload = { source: query.source, hours: query.hours };
     this.logger.log(`Fetching time-series stats: ${JSON.stringify(payload)}`);
     return firstValueFrom(
@@ -51,7 +50,7 @@ export class ReportsController {
   }
 
   @Get('funnel-conversion')
-  async getFunnelConversion(@Query() query: ReportQueryDto) {
+  async getFunnelConversion(@Query() query: FunnelStatsQueryDto) {
     const payload = { source: query.source };
     this.logger.log(
       `Fetching funnel conversion stats: ${JSON.stringify(payload)}`,

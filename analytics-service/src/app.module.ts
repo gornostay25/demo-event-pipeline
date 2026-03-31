@@ -17,8 +17,8 @@ import { ReportsService } from './reports/reports.service';
         password: process.env.DB_PASSWORD || 'postgres',
         database: process.env.DB_NAME || 'events_db',
         entities: [Event],
-        synchronize: false, // No migrations - read-only service
-        migrationsRun: false, // Don't run migrations - read-only
+        synchronize: false,
+        migrationsRun: false,
         extra: {
           max: 10,
           statement_timeout: 60000,

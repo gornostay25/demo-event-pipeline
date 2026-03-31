@@ -1,12 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
 @Entity('events')
-@Index(['timestamp', 'source']) // Composite index for analytics queries
+@Index(['timestamp', 'source'])
 export class Event {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true }) // Idempotency constraint
+  @Column({ unique: true })
   eventId: string;
 
   @Column({ type: 'timestamptz' })
