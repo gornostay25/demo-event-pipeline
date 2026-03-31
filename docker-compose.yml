@@ -2,7 +2,6 @@ services:
   # PostgreSQL Database
   postgresql:
     image: postgres:15-alpine
-    container_name: events_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-user}
@@ -21,7 +20,6 @@ services:
 
   nats:
     image: nats:alpine
-    container_name: events_nats
     restart: unless-stopped
     # ports:
     #   - "4222:4222"
@@ -40,7 +38,6 @@ services:
     build:
       context: ./api-gateway
       dockerfile: ../Dockerfile
-    container_name: events_api_gateway
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -59,7 +56,6 @@ services:
     build:
       context: ./event-processor
       dockerfile: ../Dockerfile
-    container_name: events_event_processor
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -85,7 +81,6 @@ services:
     build:
       context: ./analytics-service
       dockerfile: ../Dockerfile
-    container_name: events_analytics_service
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -107,7 +102,6 @@ services:
   # External Event Publisher
   publisher:
     image: andriiuni/events
-    container_name: events_publisher
     restart: unless-stopped
     environment:
       EVENT_ENDPOINT: http://api-gateway:3000/webhook
